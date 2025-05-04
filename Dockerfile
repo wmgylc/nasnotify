@@ -1,6 +1,14 @@
 # 使用 Python 基础镜像
 FROM python:3.9-slim
 
+# 更新 pip 和 setuptools
+RUN pip install --upgrade pip setuptools
+
+# 安装编译工具和依赖库
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 # 设置工作目录
 WORKDIR /app
 
