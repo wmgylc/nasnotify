@@ -2,6 +2,7 @@ import os
 import time
 from zspace import process_zspace
 from ugreen import process_ugreen
+import traceback
 
 # 从环境变量获取间隔时间，单位：分钟
 INTERVAL_MINUTES = int(os.getenv('INTERVAL_MINUTES', 5))

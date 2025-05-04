@@ -6,23 +6,29 @@ import base64
 from datetime import datetime, timedelta,timezone
 import os
 import re
+import traceback
 
 WXPUSH_SPT = os.getenv('WXPUSH_SPT', '')
 ####绿联获取鉴权
-def get_token(username,ip): 
+def get_token(username, ip):
     headers = {
         "User-Agent": "MyApp/1.0",
         "Authorization": "Bearer YOUR_TOKEN"
     }
-    data = {"username":username}
+    data = {"username": username}
     headers = {"Content-Type": "application/json"}
-    response = requests.post(
-        "http://"+ip+":9999/ugreen/v1/verify/check?token=",
-        json=data  # 使用 json 参数会自动设置 Content-Type 为 application/json
-        # 或者手动指定：data=json.dumps(data), headers=headers
-    )
-
-    return response.headers.get("X-Rsa-Token")
+    try:
+        response = requests.post(
+            f"http://{ip}:9999/ugreen/v1/verify/check?token=",
+            json=data,
+            timeout=10  # 设置超时时间
+        )
+        response.raise_for_status()  # 检查响应状态码
+        return response.headers.get("X-Rsa-Token")
+    except requests.RequestException as e:
+        error_info = f"获取 token 时出错，IP: {ip}, 错误信息: {e}\n{traceback.format_exc()}"
+        print(error_info)
+        return None
 
 def jiami(encoded_str,text_to_encrypt):
     encoded_str = encoded_str
@@ -49,32 +55,45 @@ def jiami(encoded_str,text_to_encrypt):
     # Remove the test block and directly call the encryption function
     encrypted_result = encrypt_with_public_key(decoded_str, text_to_encrypt)
     return encrypted_result
-def login(username,ip,password): 
+def login(username, ip, password):
     headers = {
         "x-specify-language": "zh-CN"
     }
-    data = {"username":username,"password":password,"keepalive":True,"is_simple":True}
-    response = requests.post(
-        "http://"+ip+":9999/ugreen/v1/verify/login",
-        json=data) # 使用 json 参数会自动设置 Content-Type 为 application/json
-        # 或者手动指定：data=json.dumps(data), headers=headers
-    
-    return response.json()
+    data = {"username": username, "password": password, "keepalive": True, "is_simple": True}
+    try:
+        response = requests.post(
+            f"http://{ip}:9999/ugreen/v1/verify/login",
+            json=data,
+            timeout=10  # 设置超时时间
+        )
+        response.raise_for_status()  # 检查响应状态码
+        return response.json()
+    except requests.RequestException as e:
+        error_info = f"登录时出错，IP: {ip}, 错误信息: {e}\n{traceback.format_exc()}"
+        print(error_info)
+        return {}
 
 ####绿联通知
-def ugreen_notify(token_id,token,ip):
+def ugreen_notify(token_id, token, ip):
     headers = {
         "x-specify-language": "zh-CN",
         "x-ugreen-security-key": token_id,
         "x-ugreen-token": token
     }
-    data = {"level":["info","important","warning"],"page":1,"size":10}
-    response = requests.post(
-        "http://"+ip+":9999/ugreen/v1/desktop/message/list",
-        json=data,headers=headers  
-    
-    )
-    return response.json()
+    data = {"level": ["info", "important", "warning"], "page": 1, "size": 10}
+    try:
+        response = requests.post(
+            f"http://{ip}:9999/ugreen/v1/desktop/message/list",
+            json=data,
+            headers=headers,
+            timeout=10  # 设置超时时间
+        )
+        response.raise_for_status()  # 检查响应状态码
+        return response.json()
+    except requests.RequestException as e:
+        error_info = f"获取绿联通知时出错，IP: {ip}, 错误信息: {e}\n{traceback.format_exc()}"
+        print(error_info)
+        return {}
 
 def read_notification(FILE_PATH):
     try:
@@ -192,12 +211,16 @@ def zspace_notify(cookie,ip):
         "type": "notify",
         "num": 10
     }
-    response = requests.post(
-        "http://"+ip+":5055/action/list",
-        data=data,headers=headers  
-    )
-    return response.json()
-
+    try:
+        response = requests.post(
+            "http://"+ip+":5055/action/list",
+            data=data,headers=headers,timeout=10
+        )
+        return response.json()
+    except requests.RequestException as e:
+        error_info = f"获取极空间通知时出错，IP: {ip}, 错误信息: {e}\n{traceback.format_exc()}"
+        print(error_info)
+        return {}
 ####wxpush通知
 def lly_wxpush(body,line_count,notify_type_name,wxpush_spt):
     headers = {
@@ -209,9 +232,13 @@ def lly_wxpush(body,line_count,notify_type_name,wxpush_spt):
         "contentType": 2,
         "spt": wxpush_spt,
     }
-    response = requests.post(
-        "https://wxpusher.zjiecode.com/api/send/message/simple-push",
-        json=data, headers=headers  
-    )
-    return response.json()
-
+    try:
+        response = requests.post(
+            "https://wxpusher.zjiecode.com/api/send/message/simple-push",
+            json=data, headers=headers  
+        )
+        return response.json()
+    except requests.RequestException as e:
+        error_info = f"发送微信通知时出错，错误信息: {e}\n{traceback.format_exc()}"
+        print(error_info)
+        return {}
