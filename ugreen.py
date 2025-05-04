@@ -10,18 +10,22 @@ def process_ugreen():
     os.makedirs(log_dir, exist_ok=True)
     for config in UGREEN_CONFIGS:
         username = config.get('username')
-        ip = config.get('ip')
+        ip_port = config.get('ip_port')
+        notify_type_name = config.get('notify_type_name')
+        ip, port = split_ip_port(ip_port, 9999)
+        if not check_ugreenport_open(ip, port):
+            print(f"IP: {ip}, 端口: {port} 不通，跳过此次循环")
+            continue        
         password = config.get('password')
-        file_path = os.path.join(log_dir, f"{ip}.log")
-        notify_type_name = "绿联云"+ip
+        file_path = os.path.join(log_dir, f"{ip}_{port}.log")
         try:
-            token = get_token(username, ip)
-            login_result = login(username, ip, jiami(token, password))
+            token = get_token(username, ip, port)
+            login_result = login(username, ip, port, jiami(token, password))
             public_key = login_result['data']['public_key']
             token = login_result['data']['token']
             token = jiami(public_key, token)
             token_id = login_result['data']['token_id']
-            response_data = ugreen_notify(token_id, token, ip)
+            response_data = ugreen_notify(token_id, token, ip, port)
             notice_list = response_data.get('data', {}).get('List', [])
             last_timestamp = get_last_timestamp(file_path)
             new_notices = []
@@ -29,7 +33,7 @@ def process_ugreen():
             if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
                 # 不存在文件或者文件为空，插入所有数据
                 save_notifications(notice_list, file_path)
-                log_content, line_count = read_notification(file_path)
+                log_content, line_count = read_notification(file_path,notify_type_name)
                 if log_content:
                     # 调用 wxpush 发送内容
                     lly_wxpush(log_content, line_count, notify_type_name, WXPUSH_SPT)
@@ -42,7 +46,7 @@ def process_ugreen():
                 if new_notices:
                     # 有更新数据，清空文件并插入更新部分
                     save_notifications(new_notices, file_path)
-                    log_content, line_count = read_notification(file_path)
+                    log_content, line_count = read_notification(file_path,notify_type_name)
                     if log_content:
                         # 调用 wxpush 发送内容
                         lly_wxpush(log_content, line_count, notify_type_name, WXPUSH_SPT)

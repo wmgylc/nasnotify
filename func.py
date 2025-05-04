@@ -7,10 +7,60 @@ from datetime import datetime, timedelta,timezone
 import os
 import re
 import traceback
+import socket
 
 WXPUSH_SPT = os.getenv('WXPUSH_SPT', '')
+####拆分ip和端口
+def split_ip_port(ip_port, default_port=None):
+    """
+    将 ip:port 格式的字符串拆分为 ip 和 port
+    :param ip_port: ip:port 格式的字符串
+    :param default_port: 默认端口号
+    :return: ip 和 port
+    """
+    parts = ip_port.split(':')
+    ip = parts[0]
+    port = int(parts[1]) if len(parts) > 1 else default_port
+    return ip, port
+####ip有效性检测
+def check_ugreenport_open(ip, port, timeout=2):
+    """
+    检查绿联设备指定 IP 和端口是否开放
+    :param ip_port: 目标 IP 和端口，格式为 ip:port
+    :param timeout: 超时时间，单位秒
+    :return: 如果端口开放返回 True，否则返回 False
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(timeout)
+            result = s.connect_ex((ip, port))
+            return result == 0
+    except Exception as e:
+        print(f"检查端口 {port} 时出错，IP: {ip}, 错误信息: {e}")
+        return False
+def check_zspaceport_open(ip, port, timeout=2):
+    """
+    检查极空间设备指定 IP 和端口是否开放
+    :param ip_port: 目标 IP 和端口，格式为 ip:port
+    :param timeout: 超时时间，单位秒
+    :return: 如果端口开放返回 True，否则返回 False
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(timeout)
+            result = s.connect_ex((ip, port))
+            return result == 0
+    except Exception as e:
+        print(f"检查端口 {port} 时出错，IP: {ip}, 错误信息: {e}")
+        return False
 ####绿联获取鉴权
-def get_token(username, ip):
+def get_token(username, ip, port):
+    """
+    获取绿联设备 token
+    :param username: 用户名
+    :param ip_port: 目标 IP 和端口，格式为 ip:port
+    :return: token 或 None
+    """
     headers = {
         "User-Agent": "MyApp/1.0",
         "Authorization": "Bearer YOUR_TOKEN"
@@ -19,14 +69,14 @@ def get_token(username, ip):
     headers = {"Content-Type": "application/json"}
     try:
         response = requests.post(
-            f"http://{ip}:9999/ugreen/v1/verify/check?token=",
+            f"http://{ip}:{port}/ugreen/v1/verify/check?token=",
             json=data,
-            timeout=10  # 设置超时时间
+            timeout=10
         )
-        response.raise_for_status()  # 检查响应状态码
+        response.raise_for_status()
         return response.headers.get("X-Rsa-Token")
-    except requests.RequestException as e:
-        error_info = f"获取 token 时出错，IP: {ip}, 错误信息: {e}\n{traceback.format_exc()}"
+    except Exception  as e:
+        error_info = f"获取 token 时出错，IP: {ip}, 端口: {port}, 错误信息: {e}\n{traceback.format_exc()}"
         print(error_info)
         return None
 
@@ -55,26 +105,40 @@ def jiami(encoded_str,text_to_encrypt):
     # Remove the test block and directly call the encryption function
     encrypted_result = encrypt_with_public_key(decoded_str, text_to_encrypt)
     return encrypted_result
-def login(username, ip, password):
+def login(username,  ip, port, password):
+    """
+    登录绿联设备
+    :param username: 用户名
+    :param ip_port: 目标 IP 和端口，格式为 ip:port
+    :param password: 密码
+    :return: 登录响应的 JSON 数据
+    """
     headers = {
         "x-specify-language": "zh-CN"
     }
     data = {"username": username, "password": password, "keepalive": True, "is_simple": True}
     try:
         response = requests.post(
-            f"http://{ip}:9999/ugreen/v1/verify/login",
+            f"http://{ip}:{port}/ugreen/v1/verify/login",
             json=data,
-            timeout=10  # 设置超时时间
+            timeout=10
         )
-        response.raise_for_status()  # 检查响应状态码
+        response.raise_for_status()
         return response.json()
-    except requests.RequestException as e:
-        error_info = f"登录时出错，IP: {ip}, 错误信息: {e}\n{traceback.format_exc()}"
+    except Exception  as e:
+        error_info = f"登录时出错，IP: {ip}, 端口: {port}, 错误信息: {e}\n{traceback.format_exc()}"
         print(error_info)
         return {}
 
 ####绿联通知
-def ugreen_notify(token_id, token, ip):
+def ugreen_notify(token_id, token,  ip, port):
+    """
+    获取绿联设备通知
+    :param token_id: token ID
+    :param token: token
+    :param ip_port: 目标 IP 和端口，格式为 ip:port
+    :return: 通知响应的 JSON 数据
+    """
     headers = {
         "x-specify-language": "zh-CN",
         "x-ugreen-security-key": token_id,
@@ -83,28 +147,28 @@ def ugreen_notify(token_id, token, ip):
     data = {"level": ["info", "important", "warning"], "page": 1, "size": 10}
     try:
         response = requests.post(
-            f"http://{ip}:9999/ugreen/v1/desktop/message/list",
+            f"http://{ip}:{port}/ugreen/v1/desktop/message/list",
             json=data,
             headers=headers,
-            timeout=10  # 设置超时时间
+            timeout=10
         )
-        response.raise_for_status()  # 检查响应状态码
+        response.raise_for_status()
         return response.json()
-    except requests.RequestException as e:
-        error_info = f"获取绿联通知时出错，IP: {ip}, 错误信息: {e}\n{traceback.format_exc()}"
+    except Exception as e:
+        error_info = f"获取绿联通知时出错，IP: {ip}, 端口: {port}, 错误信息: {e}\n{traceback.format_exc()}"
         print(error_info)
         return {}
 
-def read_notification(FILE_PATH):
+def read_notification(FILE_PATH,notify_type_name):
     try:
         with open(FILE_PATH, 'r', encoding='utf-8') as file:
             lines = file.readlines()
             line_count = len(lines)
             # 标题显示消息总数
-            html_content = f"<h2>绿联云消息通知（共{line_count}条）</h2>"  
+            html_content = f"<h2>{notify_type_name}消息通知（共{line_count}条）</h2>"  
             for index, line in enumerate(lines, start=1):
                 # 每条消息前加上序号
-                html_content += f"<p>{index}. {line.strip()}</p>"  
+                html_content += f"<p><strong>{index}.</strong> {line.strip()}</p>"  
             return html_content, line_count
     except FileNotFoundError:
         return "<p>无通知记录。</p>", 0
@@ -145,7 +209,7 @@ def get_last_timestamp(FILE_PATH):
 
 ####极空间通知
 
-def read_zspace_notification(FILE_PATH):
+def read_zspace_notification(FILE_PATH,notify_type_name):
     try:
         with open(FILE_PATH, 'r', encoding='utf-8') as file:
             content = file.read()
@@ -161,11 +225,11 @@ def read_zspace_notification(FILE_PATH):
 
             line_count = len(notice_list)
             # 标题显示消息总数
-            html_content = f"<h2>极空间消息通知（共{line_count}条）</h2>"  
+            html_content = f"<h2>{notify_type_name}消息通知（共{line_count}条）</h2>"  
             for index, notice in enumerate(notice_list, start=1):
                 # 先将 \n 替换为 <br>，再添加到 HTML 内容中
                 formatted_notice = notice.replace('\n', '<br>')
-                html_content += f"<p>{index}. {formatted_notice}</p>"  
+                html_content += f"<p><strong>{index}.</strong> {formatted_notice}</p>"  
             return html_content, line_count
     except FileNotFoundError:
         return "<p>无通知记录。</p>", 0
@@ -202,7 +266,13 @@ def get_last_zspace_timestamp(FILE_PATH):
     # 将最大时间转换为时间戳
     return max_time.timestamp()
 
-def zspace_notify(cookie,ip):
+def zspace_notify(cookie,  ip, port):
+    """
+    获取极空间设备通知
+    :param cookie: 认证 cookie
+    :param ip_port: 目标 IP 和端口，格式为 ip:port
+    :return: 通知响应的 JSON 数据
+    """
     headers = {
         "cookie": cookie,
         "content-type": "application/x-www-form-urlencoded",
@@ -213,16 +283,24 @@ def zspace_notify(cookie,ip):
     }
     try:
         response = requests.post(
-            "http://"+ip+":5055/action/list",
-            data=data,headers=headers,timeout=10
+            f"http://{ip}:{port}/action/list",
+            data=data, headers=headers, timeout=10
         )
         return response.json()
-    except requests.RequestException as e:
-        error_info = f"获取极空间通知时出错，IP: {ip}, 错误信息: {e}\n{traceback.format_exc()}"
+    except Exception as e:
+        error_info = f"获取极空间通知时出错，IP: {ip}, 端口: {port}, 错误信息: {e}\n{traceback.format_exc()}"
         print(error_info)
         return {}
 ####wxpush通知
-def lly_wxpush(body,line_count,notify_type_name,wxpush_spt):
+def lly_wxpush(body, line_count, notify_type_name, wxpush_spt):
+    """
+    发送微信通知
+    :param body: 通知内容
+    :param line_count: 内容行数
+    :param notify_type_name: 通知类型名称
+    :param wxpush_spt: 微信推送凭证
+    :return: 响应的 JSON 数据
+    """
     headers = {
         "Content-Type": "application/json"
     }
@@ -238,7 +316,7 @@ def lly_wxpush(body,line_count,notify_type_name,wxpush_spt):
             json=data, headers=headers  
         )
         return response.json()
-    except requests.RequestException as e:
+    except Exception as e:
         error_info = f"发送微信通知时出错，错误信息: {e}\n{traceback.format_exc()}"
         print(error_info)
         return {}
