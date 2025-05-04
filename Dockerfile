@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY zspace.py .
 COPY func.py .
 COPY ugreen.py .
-COPY run_scheduler.py .
+COPY start.py .
 
 # 设置默认环境变量
 ENV ZSPACE_CONFIGS='[]'
