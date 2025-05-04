@@ -7,6 +7,16 @@ from ugreen import process_ugreen
 INTERVAL_MINUTES = int(os.getenv('INTERVAL_MINUTES', 5))
 
 while True:
-    process_zspace()
-    process_ugreen()
+    try:
+        process_zspace()
+    except Exception as e:
+        error_info = f"执行 process_zspace 时出错: {e}\n{traceback.format_exc()}"
+        print(error_info)
+    
+    try:
+        process_ugreen()
+    except Exception as e:
+        error_info = f"执行 process_ugreen 时出错: {e}\n{traceback.format_exc()}"
+        print(error_info)
+        
     time.sleep(INTERVAL_MINUTES * 60)
