@@ -1,7 +1,8 @@
 from func import *
 
 # 从环境变量获取配置
-UGREEN_CONFIGS = json.loads(os.getenv('UGREEN_CONFIGS', '[]'))
+UGREEN_CONFIGS_STR = os.getenv('UGREEN_CONFIGS', '[]').strip()
+UGREEN_CONFIGS = json.loads(UGREEN_CONFIGS_STR)
 
 def process_ugreen():
     if not UGREEN_CONFIGS:
