@@ -1,7 +1,8 @@
 from func import *
 
 # 从环境变量获取配置
-ZSPACE_CONFIGS = json.loads(os.getenv('ZSPACE_CONFIGS', '[]'))
+zspace_configs_str = os.getenv('ZSPACE_CONFIGS', '[]').strip()
+ZSPACE_CONFIGS = json.loads(zspace_configs_str)
 
 def process_zspace():
     if not ZSPACE_CONFIGS:
