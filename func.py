@@ -9,6 +9,7 @@ import re
 import traceback
 import socket
 
+# os.environ['WXPUSH_SPT'] = 'SPT_xxxxxxx'
 WXPUSH_SPT = os.getenv('WXPUSH_SPT', '')
 ####拆分ip和端口
 def split_ip_port(ip_port, default_port=None):
@@ -22,6 +23,32 @@ def split_ip_port(ip_port, default_port=None):
     ip = parts[0]
     port = int(parts[1]) if len(parts) > 1 else default_port
     return ip, port
+
+####保存鉴权信息
+def save_auth_info(ip, port, auth_info):
+    """
+    保存鉴权信息到配置文件
+    :param ip: IP 地址
+    :param port: 端口号
+    :param auth_info: 鉴权信息
+    """
+    config_file = os.path.join("log", f"{ip}_{port}.config")
+    with open(config_file, 'w') as f:
+        json.dump(auth_info, f)
+
+####加载鉴权信息
+def load_auth_info(ip, port):
+    """
+    从配置文件加载鉴权信息
+    :param ip: IP 地址
+    :param port: 端口号
+    :return: 鉴权信息，如果文件不存在则返回 None
+    """
+    config_file = os.path.join("log", f"{ip}_{port}.config")
+    if os.path.exists(config_file):
+        with open(config_file, 'r') as f:
+            return json.load(f)
+    return None
 ####ip有效性检测
 def check_ugreenport_open(ip, port, timeout=2):
     """

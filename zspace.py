@@ -1,6 +1,12 @@
 from func import *
 # 从环境变量获取配置
-
+# os.environ['UGREEN_CONFIGS'] =  ''' [
+#             {
+#                 "ip_port": "192.168.33.11:5055", 
+#                 "cookie": "xxxxxxxxx",
+#                 "notify_type_name": "极空间z4pro"
+#             }
+#          ]'''
 zspace_configs_str = os.getenv('ZSPACE_CONFIGS', '[]').strip()
 ZSPACE_CONFIGS = json.loads(zspace_configs_str)
 def process_zspace():

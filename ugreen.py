@@ -1,8 +1,29 @@
 from func import *
 
+# os.environ['UGREEN_CONFIGS'] =  ''' [
+#             {
+#                 "ip_port": "192.168.44.23:9999", 
+#                 "username": "koryking", 
+#                 "password": "xxxxxxxxx", 
+#                 "notify_type_name": "绿联云4300P"
+#             },
+#             {
+#                 "ip_port": "192.168.44.23:9999",
+#                 "username": "koryking", 
+#                 "password": "xxxxxxxxx", 
+#                 "notify_type_name": "绿联云4800"
+#             },
+#             {
+#                 "ip_port": "192.168.22.13:9999",
+#                 "username": "koryking", 
+#                 "password": "xxxxxxxxx", 
+#                 "notify_type_name": "绿联云6800pro"
+#             }
+#          ]'''
 # 从环境变量获取配置
 UGREEN_CONFIGS_STR = os.getenv('UGREEN_CONFIGS', '[]').strip()
 UGREEN_CONFIGS = json.loads(UGREEN_CONFIGS_STR)
+
 def process_ugreen():
     if not UGREEN_CONFIGS:
         return  print("无绿联配置")# 没有配置则不执行
@@ -19,13 +40,36 @@ def process_ugreen():
         password = config.get('password')
         file_path = os.path.join(log_dir, f"{ip}_{port}.log")
         try:
-            token = get_token(username, ip, port)
-            login_result = login(username, ip, port, jiami(token, password))
-            public_key = login_result['data']['public_key']
-            token = login_result['data']['token']
-            token = jiami(public_key, token)
-            token_id = login_result['data']['token_id']
+            auth_info = load_auth_info(ip, port)
+            token_id = None
+            token = None
+            if auth_info:
+                token_id = auth_info['token_id']
+                token = auth_info['token']
+            else:
+                # 没有保存的鉴权信息，进行首次鉴权
+                token = get_token(username, ip, port)
+                login_result = login(username, ip, port, jiami(token, password))
+                public_key = login_result['data']['public_key']
+                token = login_result['data']['token']
+                token = jiami(public_key, token)
+                token_id = login_result['data']['token_id']
+                save_auth_info(ip, port, {'token_id': token_id, 'token': token})
+
+            # 只调用一次 ugreen_notify
             response_data = ugreen_notify(token_id, token, ip, port)
+            if response_data.get('code') != 200:
+                # code 不为 200，重新鉴权
+                token = get_token(username, ip, port)
+                login_result = login(username, ip, port, jiami(token, password))
+                public_key = login_result['data']['public_key']
+                token = login_result['data']['token']
+                token = jiami(public_key, token)
+                token_id = login_result['data']['token_id']
+                save_auth_info(ip, port, {'token_id': token_id, 'token': token})
+                # 重新调用 ugreen_notify
+                response_data = ugreen_notify(token_id, token, ip, port)
+
             notice_list = response_data.get('data', {}).get('List', [])
             last_timestamp = get_last_timestamp(file_path)
             new_notices = []
