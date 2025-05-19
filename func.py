@@ -9,7 +9,7 @@ import re
 import traceback
 import socket
 
-# os.environ['WXPUSH_SPT'] = 'SPT_xxxxxxx'
+# os.environ['WXPUSH_SPT'] = 'xxxxxxxxxx'
 WXPUSH_SPT = os.getenv('WXPUSH_SPT', '')
 ####拆分ip和端口
 def split_ip_port(ip_port, default_port=None):
@@ -32,7 +32,8 @@ def save_auth_info(ip, port, auth_info):
     :param port: 端口号
     :param auth_info: 鉴权信息
     """
-    config_file = os.path.join("log", f"{ip}_{port}.config")
+    os.makedirs("token", exist_ok=True)
+    config_file = os.path.join("token", f"{ip}_{port}.config")
     with open(config_file, 'w') as f:
         json.dump(auth_info, f)
 
@@ -44,15 +45,16 @@ def load_auth_info(ip, port):
     :param port: 端口号
     :return: 鉴权信息，如果文件不存在则返回 None
     """
-    config_file = os.path.join("log", f"{ip}_{port}.config")
+    os.makedirs("token", exist_ok=True)
+    config_file = os.path.join("token", f"{ip}_{port}.config")
     if os.path.exists(config_file):
         with open(config_file, 'r') as f:
             return json.load(f)
     return None
 ####ip有效性检测
-def check_ugreenport_open(ip, port, timeout=2):
+def check_port_open(ip, port, timeout=2):
     """
-    检查绿联设备指定 IP 和端口是否开放
+    检查设备指定 IP 和端口是否开放
     :param ip_port: 目标 IP 和端口，格式为 ip:port
     :param timeout: 超时时间，单位秒
     :return: 如果端口开放返回 True，否则返回 False
@@ -65,21 +67,7 @@ def check_ugreenport_open(ip, port, timeout=2):
     except Exception as e:
         print(f"检查端口 {port} 时出错，IP: {ip}, 错误信息: {e}")
         return False
-def check_zspaceport_open(ip, port, timeout=2):
-    """
-    检查极空间设备指定 IP 和端口是否开放
-    :param ip_port: 目标 IP 和端口，格式为 ip:port
-    :param timeout: 超时时间，单位秒
-    :return: 如果端口开放返回 True，否则返回 False
-    """
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(timeout)
-            result = s.connect_ex((ip, port))
-            return result == 0
-    except Exception as e:
-        print(f"检查端口 {port} 时出错，IP: {ip}, 错误信息: {e}")
-        return False
+
 ####绿联获取鉴权
 def get_token(username, ip, port):
     """
@@ -340,6 +328,69 @@ def lly_wxpush(body, line_count, notify_type_name, wxpush_spt):
     try:
         response = requests.post(
             "https://wxpusher.zjiecode.com/api/send/message/simple-push",
+            json=data, headers=headers  
+        )
+        return response.json()
+    except Exception as e:
+        error_info = f"发送微信通知时出错，错误信息: {e}\n{traceback.format_exc()}"
+        print(error_info)
+        return {}
+
+def read_zspace_notification_wx(FILE_PATH,notify_type_name):
+    try:
+        with open(FILE_PATH, 'r', encoding='utf-8') as file:
+            content = file.read()
+            # 使用正则表达式按时间戳分割通知
+            notices = re.split(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}：)', content)
+            notices = [n for n in notices if n]  
+            notice_list = []
+            for i in range(0, len(notices), 2):
+                if i + 1 < len(notices):
+                    notice = notices[i] + notices[i + 1]
+                    notice_list.append(notice.strip())
+            line_count = len(notice_list)
+            # 标题显示消息总数
+            push_content = f"{notify_type_name}消息通知（共{line_count}条）"   
+            for index, notice in enumerate(notice_list, start=1):
+                # 先将 \n 替换为 <br>，再添加到 HTML 内容中
+                push_content += f"\n\n{index}.{notice}"  
+            return push_content
+    except FileNotFoundError:
+        return "无通知记录。", 0
+  
+def read_ugreen_notification_wx(FILE_PATH,notify_type_name):
+    try:
+        with open(FILE_PATH, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+            line_count = len(lines)
+            # 标题显示消息总数
+            html_content = f"{notify_type_name}消息通知（共{line_count}条）"  
+            for index, line in enumerate(lines, start=1):
+                # 每条消息前加上序号
+                html_content += f"\n\n{index}. {line.strip()}"  
+            return html_content
+    except FileNotFoundError:
+        return "<p>无通知记录。</p>", 0
+
+def wechatpush(body, wxpush_spt):
+    """
+    发送微信通知
+    :param body: 通知内容
+    :param wxpush_spt: 微信推送凭证
+    :return: 响应的 JSON 数据
+    """
+    headers = {
+        "Content-Type": "application/json;charset=utf-8"
+    }
+    data = {
+    "msgtype": "text",
+    "text": {
+        "content":body
+    }
+}
+    try:
+        response = requests.post(
+            f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={wxpush_spt}",
             json=data, headers=headers  
         )
         return response.json()
