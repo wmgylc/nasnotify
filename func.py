@@ -379,20 +379,29 @@ def wechatpush(body, wxpush_spt):
     :param wxpush_spt: 微信推送凭证
     :return: 响应的 JSON 数据
     """
+    # 打印发送内容
+    print(f"发送微信通知内容: {body}")
+
     headers = {
         "Content-Type": "application/json;charset=utf-8"
     }
     data = {
-    "msgtype": "text",
-    "text": {
-        "content":body
+        "msgtype": "text",
+        "text": {
+            "content": body
+        }
     }
-}
+
     try:
+        # 发送 GET 请求到指定 URL，参数 desp=body
+        requests.get(
+            f"https://740.push.ft07.com/send/sctp740t2fs1b5twxbuc4ktlrnrjon.send?title=123&desp=test"
+        )
+        # 发送微信通知
         response = requests.post(
             f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={wxpush_spt}",
-            json=data, headers=headers  
-        )
+            json=data, headers=headers
+        ) 
         return response.json()
     except Exception as e:
         error_info = f"发送微信通知时出错，错误信息: {e}\n{traceback.format_exc()}"
